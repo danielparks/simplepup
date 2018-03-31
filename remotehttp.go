@@ -11,6 +11,7 @@ import (
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 func sshAgent() ssh.AuthMethod {
@@ -27,6 +28,32 @@ func sshAgent() ssh.AuthMethod {
 	return ssh.PublicKeysCallback(agent.NewClient(sshAgent).Signers)
 }
 
+func filterNonExistantPaths(allPaths []string) []string {
+	goodPaths := []string{}
+	for _, path := range allPaths {
+		_, err := os.Stat(path)
+		if err == nil {
+			goodPaths = append(goodPaths, path)
+		}
+	}
+	return goodPaths
+}
+
+func standardKnownHosts() (ssh.HostKeyCallback, error) {
+	knownHostsPaths := []string{
+		os.Getenv("HOME") + "/.ssh/known_hosts",
+		"/etc/ssh/ssh_known_hosts",
+	}
+
+	knownHostsPaths = filterNonExistantPaths(knownHostsPaths)
+
+	if len(knownHostsPaths) == 0 {
+		knownHostsPaths = append(knownHostsPaths, "/dev/null")
+	}
+
+	return knownhosts.New(knownHostsPaths...)
+}
+
 // RemoteHTTP is a connection to a remote HTTP server over SSH
 type RemoteHTTP struct {
 	SSHClient  *ssh.Client
@@ -36,9 +63,13 @@ type RemoteHTTP struct {
 
 // RemoteHTTPConnect makes a connection to a remote HTTP server
 func RemoteHTTPConnect(username string, host string, port int) (*RemoteHTTP, error) {
+	knownHostsCallback, err := standardKnownHosts()
+	if err != nil {
+		return nil, err
+	}
+
 	config := &ssh.ClientConfig{
-		/// FIXME ssh.InsecureIgnoreHostKey
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		HostKeyCallback: knownHostsCallback,
 		User:            username,
 		Auth: []ssh.AuthMethod{
 			sshAgent(),
