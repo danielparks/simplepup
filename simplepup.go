@@ -1,14 +1,47 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"net/url"
 	"os"
+	"strings"
 )
 
-func get(client *RemoteHTTP, requestURL string) string {
+func getContentType(resp *http.Response) (string, string) {
+	var contentTypeFull string
+	if len(resp.Header["Content-Type"]) == 0 {
+		contentTypeFull = "application/octet-stream"
+	} else if len(resp.Header["Content-Type"]) == 1 {
+		contentTypeFull = resp.Header["Content-Type"][0]
+	} else {
+		log.Fatal("Got more than one Content-Type header")
+	}
+
+	parts := strings.SplitN(contentTypeFull, ";", 2)
+	return parts[0], parts[1]
+}
+
+func prettify(content []byte, contentType string) string {
+	if contentType == "application/json" {
+		var prettyBytes bytes.Buffer
+		err := json.Indent(&prettyBytes, content, "", "  ")
+		if err != nil {
+			// Couldn't parse it as JSON, so just return the content unmodified.
+			return string(content)
+		}
+
+		return prettyBytes.String()
+	}
+
+	return string(content)
+}
+
+func httpGet(client *RemoteHTTP, requestURL string) string {
 	resp, err := client.HTTPClient.Get(requestURL)
 	if err != nil {
 		log.Fatalf("Error connecting to PuppetDB: %s", err)
@@ -20,14 +53,17 @@ func get(client *RemoteHTTP, requestURL string) string {
 		log.Fatalf("Error reading PuppetDB response: %s", err)
 	}
 
+	contentType, _ := getContentType(resp)
+	stringBody := prettify(body, contentType)
+
 	if resp.StatusCode == 400 {
 		// Generally a PQL error.
-		log.Fatal(string(body))
+		log.Fatal(stringBody)
 	} else if resp.StatusCode != 200 {
-		log.Fatalf("HTTP %s\n\n%s", resp.Status, string(body))
+		log.Fatalf("HTTP %s\n\n%s", resp.Status, stringBody)
 	}
 
-	return string(body)
+	return stringBody
 }
 
 func main() {
@@ -45,5 +81,5 @@ func main() {
 
 	query := os.Args[1]
 	queryURL := "http://localhost/pdb/query/v4?query=" + url.QueryEscape(query)
-	fmt.Print(get(client, queryURL))
+	fmt.Println(httpGet(client, queryURL))
 }
