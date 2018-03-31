@@ -9,7 +9,10 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/user"
 	"strings"
+
+	"github.com/kevinburke/ssh_config"
 )
 
 func getContentType(resp *http.Response) (string, string) {
@@ -74,7 +77,23 @@ func main() {
 		log.Fatal("usage: simplepup query")
 	}
 
-	client, err := RemoteHTTPConnect("dp", "pdb.ops.puppetlabs.net", 8080)
+	nominalHostname := "pdb.ops.puppetlabs.net"
+	hostname := ssh_config.Get(nominalHostname, "Hostname")
+	if hostname == "" {
+		hostname = nominalHostname
+	}
+
+	username := ssh_config.Get(nominalHostname, "User")
+	if username == "" {
+		currentUser, err := user.Current()
+		if err != nil {
+			log.Fatalf("Could not get current user: %s", err)
+		}
+
+		username = currentUser.Username
+	}
+
+	client, err := RemoteHTTPConnect(username, hostname, 8080)
 	if err != nil {
 		log.Fatalf("Error connecting to PuppetDB host: %s", err)
 	}
