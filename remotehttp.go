@@ -65,13 +65,13 @@ func RemoteHTTPConnect(username string, host string, port int) (*RemoteHTTP, err
 		},
 	}
 
-	remoteHttp := &RemoteHTTP{
+	remoteHTTP := &RemoteHTTP{
 		SSHClient:  sshClient,
 		SSHSession: sshSession,
 		HTTPClient: &httpClient,
 	}
 
-	return remoteHttp, nil
+	return remoteHTTP, nil
 }
 
 // Close the SSH session. Idempotent.
