@@ -8,6 +8,28 @@ import (
 	"os"
 )
 
+func get(client *RemoteHTTP, requestURL string) string {
+	resp, err := client.HTTPClient.Get(requestURL)
+	if err != nil {
+		log.Fatalf("Error connecting to PuppetDB: %s", err)
+	}
+
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatalf("Error reading PuppetDB response: %s", err)
+	}
+
+	if resp.StatusCode == 400 {
+		// Generally a PQL error.
+		log.Fatal(string(body))
+	} else if resp.StatusCode != 200 {
+		log.Fatalf("HTTP %s\n\n%s", resp.Status, string(body))
+	}
+
+	return string(body)
+}
+
 func main() {
 	// Don't include metadata like the time in log messages.
 	log.SetFlags(0)
@@ -23,16 +45,5 @@ func main() {
 
 	query := os.Args[1]
 	queryURL := "http://localhost/pdb/query/v4?query=" + url.QueryEscape(query)
-	resp, err := client.HTTPClient.Get(queryURL)
-	if err != nil {
-		log.Fatalf("Error connecting to PuppetDB: %s", err)
-	}
-
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatalf("Error reading PuppetDB response: %s", err)
-	}
-
-	fmt.Print(string(body))
+	fmt.Print(get(client, queryURL))
 }
