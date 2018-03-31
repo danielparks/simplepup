@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"time"
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
@@ -57,6 +58,7 @@ func RemoteHTTPConnect(username string, host string, port int) (*RemoteHTTP, err
 	}
 
 	httpClient := http.Client{
+		Timeout: time.Second * 60,
 		Transport: &http.Transport{
 			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
 				// sshClient.Dial returns a forwarded net.Conn to port on the remote.
