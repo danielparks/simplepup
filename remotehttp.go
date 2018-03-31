@@ -62,7 +62,7 @@ type RemoteHTTP struct {
 }
 
 // RemoteHTTPConnect makes a connection to a remote HTTP server
-func RemoteHTTPConnect(username string, host string, port int) (*RemoteHTTP, error) {
+func RemoteHTTPConnect(username string, host string, httpPort int) (*RemoteHTTP, error) {
 	knownHostsCallback, err := standardKnownHosts()
 	if err != nil {
 		return nil, err
@@ -92,8 +92,8 @@ func RemoteHTTPConnect(username string, host string, port int) (*RemoteHTTP, err
 		Timeout: time.Second * 60,
 		Transport: &http.Transport{
 			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-				// sshClient.Dial returns a forwarded net.Conn to port on the remote.
-				return sshClient.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+				// sshClient.Dial returns a tunneled net.Conn to httpPort on the remote.
+				return sshClient.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", httpPort))
 			},
 		},
 	}
